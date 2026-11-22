@@ -1,0 +1,171 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NWA Hospital Status</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: status board of hospital tiles up top, GroupMe message log with parse results below. */
+:root {
+  --bg: #f3f5f8; --panel: #ffffff; --ink: #18202b; --muted: #5d6878; --line: #dde2ea;
+  --accent: #1f5fae;
+  --open: #1b7a45; --open-bg: #e3f4ea;
+  --divert: #b42318; --divert-bg: #fde8e6;
+  --partial: #a35a00; --partial-bg: #fdf0dc;
+  --sched: #5b4bb7; --sched-bg: #ece9fb;
+  --review: #6b5d00; --review-bg: #fbf5cf;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141b; --panel: #171e28; --ink: #e6ebf2; --muted: #96a2b3; --line: #2a3442;
+  --accent: #6ea8ff;
+  --open: #5fd08f; --open-bg: #14301f; --divert: #ff8a80; --divert-bg: #3d1714;
+  --partial: #ffb95c; --partial-bg: #3a2a10; --sched: #b3a8ff; --sched-bg: #262046;
+  --review: #e8d36a; --review-bg: #33300f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f141b; --panel: #171e28; --ink: #e6ebf2; --muted: #96a2b3; --line: #2a3442;
+  --accent: #6ea8ff;
+  --open: #5fd08f; --open-bg: #14301f; --divert: #ff8a80; --divert-bg: #3d1714;
+  --partial: #ffb95c; --partial-bg: #3a2a10; --sched: #b3a8ff; --sched-bg: #262046;
+  --review: #e8d36a; --review-bg: #33300f; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 { font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin: 2px 0 0; }
+.clock { font-family: var(--mono); font-size: .95rem; color: var(--muted); text-align: right; }
+.clock b { display: block; color: var(--ink); font-size: 1.15rem; font-weight: 500; }
+.banner { background: var(--sched-bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font-size: .9rem; }
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; letter-spacing: .02em; }
+.chip.open { background: var(--open-bg); color: var(--open); }
+.chip.divert { background: var(--divert-bg); color: var(--divert); }
+.chip.partial { background: var(--partial-bg); color: var(--partial); }
+.chip.sched { background: var(--sched-bg); color: var(--sched); }
+.chip.review { background: var(--review-bg); color: var(--review); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; border-left: 5px solid var(--open); min-width: 0; }
+.tile.divert { border-left-color: var(--divert); }
+.tile.partial { border-left-color: var(--partial); }
+.tile.sched { border-left-color: var(--sched); }
+.tile h2 { font-size: 1.05rem; margin: 0; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.tile h2 small { color: var(--muted); font-weight: 500; font-size: .75rem; letter-spacing: .06em; }
+.state { font-size: 1.25rem; font-weight: 700; }
+.tile.open .state { color: var(--open); } .tile.divert .state { color: var(--divert); }
+.tile.partial .state { color: var(--partial); } .tile.sched .state { color: var(--sched); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.meta { font-size: .82rem; color: var(--muted); display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
+.meta .src { color: var(--ink); font-style: italic; overflow-wrap: anywhere; }
+section h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+.replay { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: grid; gap: 8px; }
+.replay label { font-size: .85rem; color: var(--muted); }
+.replay input { width: 100%; accent-color: var(--accent); }
+.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 640px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+td.t { font-family: var(--mono); white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+tr.future td { opacity: .35; }
+tr.current td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+tr { cursor: pointer; }
+tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (prefers-reduced-motion: no-preference) { .tile { transition: border-color .2s; } }
+tr.future td { opacity: 1; }
+.stale { color: var(--partial); font-weight: 600; }
+</style>
+</head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>NWA Hospital Status</h1>
+      <p class="sub">Diversion status read from the hospital GroupMe group. Confirm with the hospital before relying on it.</p>
+    </div>
+    <div class="clock">Updated<b id="asof">Loading…</b></div>
+  </header>
+  <div class="banner" id="error" hidden></div>
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+  <section>
+    <h3>Recent GroupMe messages</h3>
+    <div class="log"><table>
+      <thead><tr><th>Sent</th><th>From</th><th>Message</th><th>Read as</th></tr></thead>
+      <tbody id="log"></tbody>
+    </table></div>
+  </section>
+</div>
+<script>
+const REFRESH_MS = 30000;
+// A diversion with no update for this long gets flagged so nobody trusts an old report.
+const STALE_MS = 6 * 3600e3;
+const TZ = 'America/Chicago';
+const hhmm = ms => new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).replace(':', '');
+const stamp = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + hhmm(ms);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function ago(from, to) {
+  const m = Math.max(0, Math.round((to - from) / 60000));
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60), r = m % 60;
+  return h + ' hr' + (r ? ' ' + r + ' min' : '');
+}
+
+function render(d) {
+  const label = id => d.services.find(s => s.id === id).label;
+  const byId = Object.fromEntries(d.messages.map(m => [m.id, m]));
+  const now = d.now;
+  let nDiv = 0, nSched = 0;
+  const grid = document.getElementById('grid'); grid.innerHTML = '';
+  for (const h of d.hospitals) {
+    const s = d.state[h.id];
+    const active = Object.entries(s).filter(([, v]) => v.active && v.since <= now);
+    const sched = Object.entries(s).filter(([, v]) => v.active && v.since > now);
+    const recent = Object.values(s).map(v => byId[v.last]).filter(Boolean).sort((a, b) => b.sentAt - a.sentAt)[0];
+    let cls = 'open', text = 'Open';
+    if (active.length) { cls = active.some(([k]) => k === 'ed') ? 'divert' : 'partial'; text = active.map(([k]) => label(k)).join(' + ') + ' Divert'; nDiv++; }
+    else if (sched.length) { cls = 'sched'; text = 'Divert scheduled'; nSched++; }
+    let meta = '';
+    for (const [k, v] of active) {
+      meta += `<span>${label(k)} divert ${v.sinceUnknown ? 'reported at ' + hhmm(v.since) + ' (start not seen)' : 'since ' + hhmm(v.since)} · ${ago(v.since, now)}</span>`;
+      const stale = now - v.lastConfirmed > STALE_MS;
+      meta += `<span class="${stale ? 'stale' : ''}">Last confirmed ${hhmm(v.lastConfirmed)} (${ago(v.lastConfirmed, now)} ago)${stale ? ', may be out of date' : ''}</span>`;
+    }
+    for (const [k, v] of sched) meta += `<span>${label(k)} divert starts ${hhmm(v.since)}</span>`;
+    if (!active.length && !sched.length) meta += recent ? `<span>Last change ${stamp(recent.sentAt)}</span>` : '<span>No reports in the last 14 days</span>';
+    if (recent) meta += `<span class="src">“${esc(recent.text)}” · ${esc(recent.from)}</span>`;
+    const t = document.createElement('article');
+    t.className = 'tile ' + cls;
+    t.innerHTML = `<h2>${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</h2><div class="state">${text}</div><div class="meta">${meta}</div>`;
+    grid.appendChild(t);
+  }
+  const reviews = d.messages.filter(m => !m.parsed.ok && now - m.sentAt < 86400e3).length;
+  document.getElementById('summary').innerHTML =
+    `<span class="chip ${nDiv ? 'divert' : 'open'}">${nDiv} on divert</span>` +
+    `<span class="chip open">${d.hospitals.length - nDiv - nSched} open</span>` +
+    (nSched ? `<span class="chip sched">${nSched} scheduled</span>` : '') +
+    (reviews ? `<span class="chip review">${reviews} unread in last 24 hr</span>` : '');
+  const hName = id => d.hospitals.find(x => x.id === id).name;
+  document.getElementById('log').innerHTML = d.messages.slice(0, 50).map(m => {
+    const read = !m.parsed.ok ? `<span class="chip review">Not a status: ${esc(m.parsed.reason)}</span>` : m.parsed.events.map(e => {
+      const word = e.kind === 'off' ? 'off' : e.kind === 'confirm' ? 'still on' : 'on';
+      const cls = e.kind === 'off' ? 'open' : e.kind === 'confirm' ? 'partial' : 'divert';
+      return `<span class="chip ${cls}">${esc(hName(e.hospitalId))} · ${label(e.service)} ${word} @ ${hhmm(e.effectiveAt)}</span>`;
+    }).join(' ');
+    return `<tr><td class="t">${stamp(m.sentAt)}</td><td>${esc(m.from)}</td><td>${esc(m.text)}</td><td>${read}</td></tr>`;
+  }).join('') || '<tr><td colspan="4">No messages yet.</td></tr>';
+  document.getElementById('asof').textContent = stamp(now);
+}
+
+async function refresh() {
+  const err = document.getElementById('error');
+  try {
+    const r = await fetch('/api/status', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    render(await r.json());
+    err.hidden = true;
+  } catch (e) {
+    err.textContent = 'Could not reach the server (' + e.message + '). Showing the last status loaded; retrying every 30 seconds.';
+    err.hidden = false;
+  }
+}
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body></html>

@@ -1,0 +1,12 @@
+{
+  "name": "nwa-hospital-status",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute nwa-hospital-status --remote --file=schema.sql"
+  },
+  "devDependencies": { "wrangler": "^4.0.0" }
+}

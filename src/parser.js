@@ -1,0 +1,92 @@
+// Turns one GroupMe message into zero or more diversion events.
+export const HOSPITALS = [
+  { id: 'freeman-bentonville', name: 'Freeman Bentonville', aliases: ['freeman bentonville'] },
+  { id: 'freeman-centerton', name: 'Freeman Centerton', note: 'FSED', aliases: ['freeman centerton', 'centerton fsed', 'centerton'] },
+  { id: 'freeman-springdale', name: 'Freeman Springdale', aliases: ['freeman springdale'] },
+  { id: 'freeman-siloam', name: 'Freeman Siloam Springs', aliases: ['freeman siloam springs', 'freeman siloam', 'siloam springs', 'siloam'] },
+  { id: 'mercy-rogers', name: 'Mercy Rogers', aliases: ['mercy rogers', 'mercy nwa'] },
+  { id: 'mercy-berryville', name: 'Mercy Berryville', aliases: ['mercy berryville', 'berryville'] },
+  { id: 'wrmc', name: 'Washington Regional', aliases: ['washington regional medical center', 'washington regional', 'wrmc'] },
+  { id: 'acnw', name: "Arkansas Children's NW", aliases: ["arkansas children's northwest", 'arkansas childrens northwest', "arkansas children's nw", 'arkansas childrens nw', 'achnw', 'acnw', "children's nw", 'childrens nw'] },
+];
+
+export const SERVICES = [
+  { id: 'ed', label: 'ED', re: /\b(er|ed|emergency)\b/ },
+  { id: 'stroke', label: 'Stroke', re: /\bstroke\b/ },
+  { id: 'stemi', label: 'STEMI', re: /\b(stemi|cardiac|cath)\b/ },
+  { id: 'trauma', label: 'Trauma', re: /\btrauma\b/ },
+  { id: 'ob', label: 'OB', re: /\b(ob|l&d|labor)\b/ },
+  { id: 'peds', label: 'Peds', re: /\b(peds|pediatric)\b/ },
+  { id: 'ct', label: 'CT', re: /\bct\b/ },
+];
+
+export const TIME_ZONE = 'America/Chicago';
+
+const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ALIAS_RES = HOSPITALS.map(h => ({ h, res: h.aliases.map(a => new RegExp('\\b' + escape(a) + '\\b')) }));
+
+function findHospitals(t) {
+  return ALIAS_RES.filter(({ res }) => res.some(re => re.test(t))).map(({ h }) => h);
+}
+
+// "as of 2000", "at 0014", "starting at 18:00" -> minutes after midnight
+function findTime(t) {
+  const m = t.match(/\b(?:as of|at|starting(?: at)?|beginning(?: at)?|effective)\s+(\d{1,2}):?(\d{2})\b/);
+  if (!m) return null;
+  const h = +m[1], min = +m[2];
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+function localMinutes(date) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
+  const get = type => +parts.find(p => p.type === type).value;
+  return get('hour') * 60 + get('minute');
+}
+
+// Returns { ok: true, events: [{ hospitalId, service, kind: 'on'|'off'|'confirm', effectiveAt: ms }] }
+// or { ok: false, reason } when a person should look at it.
+export function parseMessage(text, sentAtMs) {
+  const t = String(text || '').toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
+  if (!/\bdiver(t|sion|ted)\b/.test(t)) return { ok: false, reason: 'No divert language' };
+  const hospitals = findHospitals(t);
+  if (!hospitals.length) return { ok: false, reason: 'No known hospital name' };
+  if (hospitals.length > 1) return { ok: false, reason: 'More than one hospital named' };
+
+  let kind;
+  if (/\b(off|ended|lifted|no longer|open)\b/.test(t)) kind = 'off';
+  else if (/\b(continues|continuing|remains|remaining|still)\b/.test(t)) kind = 'confirm';
+  else if (/\b(on|going|is|placed|starting)\b/.test(t)) kind = 'on';
+  else return { ok: false, reason: 'Could not tell on or off' };
+
+  let services = SERVICES.filter(s => s.re.test(t)).map(s => s.id);
+  if (!services.length) services = ['ed'];
+
+  // A stated clock time is taken as the nearest such time to when the message was sent,
+  // so "off at 0014" sent at 00:15 and "starting at 18:00" sent at 17:48 both land right.
+  let effectiveAt = sentAtMs;
+  const stated = findTime(t);
+  if (stated !== null) {
+    let delta = stated - localMinutes(new Date(sentAtMs));
+    if (delta > 720) delta -= 1440;
+    if (delta < -720) delta += 1440;
+    effectiveAt = Math.floor(sentAtMs / 60000) * 60000 + delta * 60000;
+  }
+
+  return { ok: true, events: services.map(service => ({ hospitalId: hospitals[0].id, service, kind, effectiveAt })) };
+}
+
+// Replays parsed messages (oldest first) into per-hospital, per-service state.
+export function buildState(messages, nowMs) {
+  const st = Object.fromEntries(HOSPITALS.map(h => [h.id, {}]));
+  for (const m of messages) {
+    if (m.sentAt > nowMs || !m.parsed.ok) continue;
+    for (const e of m.parsed.events) {
+      const cur = st[e.hospitalId][e.service];
+      if (e.kind === 'off') st[e.hospitalId][e.service] = { active: false, since: e.effectiveAt, last: m.id };
+      else if (cur && cur.active) { cur.lastConfirmed = m.sentAt; cur.last = m.id; }
+      else st[e.hospitalId][e.service] = { active: true, since: e.effectiveAt, sinceUnknown: e.kind === 'confirm', lastConfirmed: m.sentAt, last: m.id };
+    }
+  }
+  return st;
+}

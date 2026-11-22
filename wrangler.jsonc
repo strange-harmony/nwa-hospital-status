@@ -1,0 +1,11 @@
+{
+  "name": "nwa-hospital-status",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "nwa-hospital-status", "database_id": "REPLACE_WITH_D1_ID" }
+  ],
+  "vars": { "GROUPME_GROUP_ID": "" }
+  // Secret, set with: npx wrangler secret put GROUPME_PATH_TOKEN
+}
