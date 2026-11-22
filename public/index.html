@@ -1,171 +1,269 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>NWA Hospital Status</title>
-
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: status board of hospital tiles up top, GroupMe message log with parse results below. */
+/* Layout: phone = one sticky header + a status list sorted by severity, details on tap.
+   TV (#tv) = fixed dark 4x2 board that fills the screen, readable across a room. */
 :root {
-  --bg: #f3f5f8; --panel: #ffffff; --ink: #18202b; --muted: #5d6878; --line: #dde2ea;
+  --bg: #eef1f5; --panel: #ffffff; --ink: #141b24; --muted: #5b6676; --line: #d9dfe7;
   --accent: #1f5fae;
-  --open: #1b7a45; --open-bg: #e3f4ea;
-  --divert: #b42318; --divert-bg: #fde8e6;
-  --partial: #a35a00; --partial-bg: #fdf0dc;
-  --sched: #5b4bb7; --sched-bg: #ece9fb;
-  --review: #6b5d00; --review-bg: #fbf5cf;
+  --open: #17733f; --open-bg: #e2f3e8;
+  --divert: #b3261e; --divert-bg: #fce7e5; --divert-strong: #c62a20;
+  --partial: #9a5200; --partial-bg: #fcefd9;
+  --sched: #5847b5; --sched-bg: #ebe8fb;
+  --stale: #8a6d00;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0f141b; --panel: #171e28; --ink: #e6ebf2; --muted: #96a2b3; --line: #2a3442;
-  --accent: #6ea8ff;
-  --open: #5fd08f; --open-bg: #14301f; --divert: #ff8a80; --divert-bg: #3d1714;
-  --partial: #ffb95c; --partial-bg: #3a2a10; --sched: #b3a8ff; --sched-bg: #262046;
-  --review: #e8d36a; --review-bg: #33300f; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #0f141b; --panel: #171e28; --ink: #e6ebf2; --muted: #96a2b3; --line: #2a3442;
-  --accent: #6ea8ff;
-  --open: #5fd08f; --open-bg: #14301f; --divert: #ff8a80; --divert-bg: #3d1714;
-  --partial: #ffb95c; --partial-bg: #3a2a10; --sched: #b3a8ff; --sched-bg: #262046;
-  --review: #e8d36a; --review-bg: #33300f; color-scheme: dark }
-body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
-.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
-header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
-h1 { font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-.sub { color: var(--muted); margin: 2px 0 0; }
-.clock { font-family: var(--mono); font-size: .95rem; color: var(--muted); text-align: right; }
-.clock b { display: block; color: var(--ink); font-size: 1.15rem; font-weight: 500; }
-.banner { background: var(--sched-bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font-size: .9rem; }
-.summary { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; letter-spacing: .02em; }
-.chip.open { background: var(--open-bg); color: var(--open); }
-.chip.divert { background: var(--divert-bg); color: var(--divert); }
-.chip.partial { background: var(--partial-bg); color: var(--partial); }
-.chip.sched { background: var(--sched-bg); color: var(--sched); }
-.chip.review { background: var(--review-bg); color: var(--review); }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; border-left: 5px solid var(--open); min-width: 0; }
-.tile.divert { border-left-color: var(--divert); }
-.tile.partial { border-left-color: var(--partial); }
-.tile.sched { border-left-color: var(--sched); }
-.tile h2 { font-size: 1.05rem; margin: 0; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.tile h2 small { color: var(--muted); font-weight: 500; font-size: .75rem; letter-spacing: .06em; }
-.state { font-size: 1.25rem; font-weight: 700; }
-.tile.open .state { color: var(--open); } .tile.divert .state { color: var(--divert); }
-.tile.partial .state { color: var(--partial); } .tile.sched .state { color: var(--sched); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.meta { font-size: .82rem; color: var(--muted); display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
-.meta .src { color: var(--ink); font-style: italic; overflow-wrap: anywhere; }
-section h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
-.replay { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: grid; gap: 8px; }
-.replay label { font-size: .85rem; color: var(--muted); }
-.replay input { width: 100%; accent-color: var(--accent); }
-.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 640px; }
-th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
-td.t { font-family: var(--mono); white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
-tr.future td { opacity: .35; }
-tr.current td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-tr { cursor: pointer; }
-tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-@media (prefers-reduced-motion: no-preference) { .tile { transition: border-color .2s; } }
-tr.future td { opacity: 1; }
-.stale { color: var(--partial); font-weight: 600; }
+  --bg: #0d1218; --panel: #161d26; --ink: #e7ecf2; --muted: #95a1b2; --line: #273141;
+  --accent: #6ea8ff; --open: #5bcf8a; --open-bg: #12301e; --divert: #ff8b80; --divert-bg: #3c1613; --divert-strong: #d63a2f;
+  --partial: #ffb757; --partial-bg: #3a290e; --sched: #b5aaff; --sched-bg: #251f45; --stale: #e6cc5c; color-scheme: dark } }
+:root[data-theme="dark"], :root[data-mode="tv"] {
+  --bg: #0d1218; --panel: #161d26; --ink: #e7ecf2; --muted: #95a1b2; --line: #273141;
+  --accent: #6ea8ff; --open: #5bcf8a; --open-bg: #12301e; --divert: #ff8b80; --divert-bg: #3c1613; --divert-strong: #d63a2f;
+  --partial: #ffb757; --partial-bg: #3a290e; --sched: #b5aaff; --sched-bg: #251f45; --stale: #e6cc5c; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.4; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- Phone / default ---------- */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+.top-in, .main { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top-in { padding-block: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.top h1 { font-family: var(--cond); font-size: 1.2rem; font-weight: 700; margin: 0; letter-spacing: .01em; }
+.updated { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--open); }
+.dot.bad { background: var(--divert); }
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
+.top h1, .tvlink { white-space: nowrap; }
+.tvlink { font-size: .78rem; color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+.tvlink:hover { border-color: var(--accent); }
+.main { padding-block: 14px 40px; display: grid; gap: 14px; }
+.tally { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .9rem; color: var(--muted); }
+.tally b { color: var(--ink); font-weight: 600; }
+.tally .d b { color: var(--divert); }
+.err { background: var(--divert-bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font-size: .88rem; }
+.list { display: grid; gap: 8px; }
+.row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.row > button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 14px; cursor: pointer; align-items: center; }
+.row > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 10px; }
+.row.divert { border-color: color-mix(in srgb, var(--divert) 45%, var(--line)); box-shadow: inset 4px 0 0 var(--divert); }
+.row.partial { box-shadow: inset 4px 0 0 var(--partial); }
+.row.sched { box-shadow: inset 4px 0 0 var(--sched); }
+.name { font-weight: 600; font-size: 1rem; min-width: 0; }
+.name small { color: var(--muted); font-weight: 500; font-size: .72rem; letter-spacing: .06em; margin-left: 6px; }
+.pills { display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap; }
+.pill { font-family: var(--cond); font-weight: 700; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
+.pill.open { color: var(--open); background: var(--open-bg); }
+.pill.divert { color: #fff; background: var(--divert-strong); }
+.pill.partial { color: var(--partial); background: var(--partial-bg); }
+.pill.sched { color: var(--sched); background: var(--sched-bg); }
+.sub { grid-column: 1 / -1; font-size: .82rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.sub .stale { color: var(--stale); font-weight: 600; }
+.more { padding: 0 14px 12px; font-size: .85rem; display: grid; gap: 4px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.more q { font-style: italic; overflow-wrap: anywhere; }
+.more .who { color: var(--muted); font-size: .8rem; }
+details.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+details.log summary { padding: 12px 14px; cursor: pointer; font-weight: 600; font-size: .92rem; }
+.msgs { display: grid; border-top: 1px solid var(--line); }
+.msg { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 3px; font-size: .86rem; }
+.msg:last-child { border-bottom: 0; }
+.msg .meta { color: var(--muted); font-size: .76rem; display: flex; gap: 10px; flex-wrap: wrap; }
+.msg .read { font-size: .76rem; color: var(--muted); }
+.msg .read.no { color: var(--stale); }
+.foot { font-size: .78rem; color: var(--muted); text-align: center; }
+
+/* ---------- TV ---------- */
+:root[data-mode="tv"], :root[data-mode="tv"] body { height: 100%; overflow: hidden; }
+.tv { display: none; }
+:root[data-mode="tv"] .phone { display: none; }
+:root[data-mode="tv"] body::before { display: none; }
+:root[data-mode="tv"] .tv { display: grid; grid-template-rows: auto 1fr auto; height: 100%; gap: 1.2vh; padding-block: 2vh; padding-left: max(2vw, env(safe-area-inset-left, 0px)); padding-right: max(2vw, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.tv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 2vw; }
+.tv-head h1 { font-family: var(--cond); font-weight: 700; font-size: clamp(20px, 3.4vh, 48px); margin: 0; letter-spacing: .02em; text-transform: uppercase; }
+.tv-head .tally { font-size: clamp(14px, 2.4vh, 32px); }
+.tv-clock { font-family: var(--mono); font-weight: 600; font-size: clamp(24px, 5vh, 72px); line-height: 1; }
+.tv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 1.2vh 1vw; min-height: 0; }
+.tile { background: var(--panel); border-radius: 1.2vh; padding: 2vh 1.4vw; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; overflow: hidden; border: 2px solid transparent; }
+.tile .t-name { font-family: var(--cond); font-weight: 600; font-size: clamp(16px, 3.6vh, 52px); line-height: 1.05; }
+.tile .t-name small { display: block; font-size: .5em; color: var(--muted); letter-spacing: .1em; margin-top: .3vh; }
+.tile .t-state { align-self: center; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(22px, 6.4vh, 96px); line-height: 1; }
+.tile .t-info { font-family: var(--mono); font-size: clamp(12px, 2.2vh, 30px); color: var(--muted); display: grid; gap: .4vh; }
+.tile.open .t-state { color: var(--open); }
+.tile.divert { background: var(--divert-strong); }
+.tile.divert, .tile.divert .t-name small, .tile.divert .t-info { color: #fff; }
+.tile.partial { border-color: var(--partial); }
+.tile.partial .t-state { color: var(--partial); }
+.tile.sched .t-state { color: var(--sched); }
+.tile .stale { color: var(--stale); }
+.tile.divert .stale { color: #ffe98a; }
+.tv-foot { display: flex; justify-content: space-between; gap: 2vw; font-size: clamp(11px, 1.7vh, 22px); color: var(--muted); }
+.tv-foot a { color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .tile, .row { transition: background-color .3s, border-color .3s; } }
+@media (orientation: portrait) { .tv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); } }
 </style>
-</head><body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1>NWA Hospital Status</h1>
-      <p class="sub">Diversion status read from the hospital GroupMe group. Confirm with the hospital before relying on it.</p>
-    </div>
-    <div class="clock">Updated<b id="asof">Loading…</b></div>
-  </header>
-  <div class="banner" id="error" hidden></div>
-  <div class="summary" id="summary"></div>
-  <div class="grid" id="grid"></div>
-  <section>
-    <h3>Recent GroupMe messages</h3>
-    <div class="log"><table>
-      <thead><tr><th>Sent</th><th>From</th><th>Message</th><th>Read as</th></tr></thead>
-      <tbody id="log"></tbody>
-    </table></div>
-  </section>
+</head>
+<body>
+<div class="phone">
+  <header class="top"><div class="top-in">
+    <h1>NWA Hospital Status</h1>
+    <a class="tvlink" href="#tv">TV view</a>
+  </div></header>
+  <main class="main">
+    <div class="err" id="err" hidden></div>
+    <div class="bar"><div class="tally" id="tally"></div><span class="updated"><span class="dot" id="dot"></span><span id="upd">Loading…</span></span></div>
+    <div class="list" id="list"></div>
+    <details class="log"><summary>Recent GroupMe messages</summary><div class="msgs" id="msgs"></div></details>
+    <p class="foot">Read automatically from the hospital GroupMe group. Confirm with the hospital before relying on it.</p>
+  </main>
+</div>
+<div class="tv">
+  <div class="tv-head">
+    <div><h1>NWA Hospital Status</h1><div class="tally" id="tv-tally"></div></div>
+    <div class="tv-clock" id="tv-clock"></div>
+  </div>
+  <div class="tv-grid" id="tv-grid"></div>
+  <div class="tv-foot"><span id="tv-upd"></span><span>Confirm with the hospital before relying on it. <a href="#">Exit TV view</a></span></div>
 </div>
 <script>
+const clockNow = () => Date.now();
+async function loadData() {
+  const r = await fetch('/api/status', { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
 const REFRESH_MS = 30000;
-// A diversion with no update for this long gets flagged so nobody trusts an old report.
+// A diversion with no update for this long is flagged so nobody trusts an old report.
 const STALE_MS = 6 * 3600e3;
 const TZ = 'America/Chicago';
 const hhmm = ms => new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).replace(':', '');
-const stamp = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + hhmm(ms);
+const day = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-function ago(from, to) {
+function dur(from, to) {
   const m = Math.max(0, Math.round((to - from) / 60000));
-  if (m < 60) return m + ' min';
-  const h = Math.floor(m / 60), r = m % 60;
-  return h + ' hr' + (r ? ' ' + r + ' min' : '');
+  if (m < 60) return m + 'm';
+  return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm';
 }
+const RANK = { divert: 0, partial: 1, sched: 2, open: 3 };
 
-function render(d) {
+// Boils the API's per-service state down to one summary per hospital.
+function summarize(d) {
   const label = id => d.services.find(s => s.id === id).label;
   const byId = Object.fromEntries(d.messages.map(m => [m.id, m]));
-  const now = d.now;
-  let nDiv = 0, nSched = 0;
-  const grid = document.getElementById('grid'); grid.innerHTML = '';
-  for (const h of d.hospitals) {
-    const s = d.state[h.id];
-    const active = Object.entries(s).filter(([, v]) => v.active && v.since <= now);
-    const sched = Object.entries(s).filter(([, v]) => v.active && v.since > now);
-    const recent = Object.values(s).map(v => byId[v.last]).filter(Boolean).sort((a, b) => b.sentAt - a.sentAt)[0];
-    let cls = 'open', text = 'Open';
-    if (active.length) { cls = active.some(([k]) => k === 'ed') ? 'divert' : 'partial'; text = active.map(([k]) => label(k)).join(' + ') + ' Divert'; nDiv++; }
-    else if (sched.length) { cls = 'sched'; text = 'Divert scheduled'; nSched++; }
-    let meta = '';
-    for (const [k, v] of active) {
-      meta += `<span>${label(k)} divert ${v.sinceUnknown ? 'reported at ' + hhmm(v.since) + ' (start not seen)' : 'since ' + hhmm(v.since)} · ${ago(v.since, now)}</span>`;
-      const stale = now - v.lastConfirmed > STALE_MS;
-      meta += `<span class="${stale ? 'stale' : ''}">Last confirmed ${hhmm(v.lastConfirmed)} (${ago(v.lastConfirmed, now)} ago)${stale ? ', may be out of date' : ''}</span>`;
-    }
-    for (const [k, v] of sched) meta += `<span>${label(k)} divert starts ${hhmm(v.since)}</span>`;
-    if (!active.length && !sched.length) meta += recent ? `<span>Last change ${stamp(recent.sentAt)}</span>` : '<span>No reports in the last 14 days</span>';
-    if (recent) meta += `<span class="src">“${esc(recent.text)}” · ${esc(recent.from)}</span>`;
-    const t = document.createElement('article');
-    t.className = 'tile ' + cls;
-    t.innerHTML = `<h2>${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</h2><div class="state">${text}</div><div class="meta">${meta}</div>`;
-    grid.appendChild(t);
-  }
-  const reviews = d.messages.filter(m => !m.parsed.ok && now - m.sentAt < 86400e3).length;
-  document.getElementById('summary').innerHTML =
-    `<span class="chip ${nDiv ? 'divert' : 'open'}">${nDiv} on divert</span>` +
-    `<span class="chip open">${d.hospitals.length - nDiv - nSched} open</span>` +
-    (nSched ? `<span class="chip sched">${nSched} scheduled</span>` : '') +
-    (reviews ? `<span class="chip review">${reviews} unread in last 24 hr</span>` : '');
-  const hName = id => d.hospitals.find(x => x.id === id).name;
-  document.getElementById('log').innerHTML = d.messages.slice(0, 50).map(m => {
-    const read = !m.parsed.ok ? `<span class="chip review">Not a status: ${esc(m.parsed.reason)}</span>` : m.parsed.events.map(e => {
-      const word = e.kind === 'off' ? 'off' : e.kind === 'confirm' ? 'still on' : 'on';
-      const cls = e.kind === 'off' ? 'open' : e.kind === 'confirm' ? 'partial' : 'divert';
-      return `<span class="chip ${cls}">${esc(hName(e.hospitalId))} · ${label(e.service)} ${word} @ ${hhmm(e.effectiveAt)}</span>`;
-    }).join(' ');
-    return `<tr><td class="t">${stamp(m.sentAt)}</td><td>${esc(m.from)}</td><td>${esc(m.text)}</td><td>${read}</td></tr>`;
-  }).join('') || '<tr><td colspan="4">No messages yet.</td></tr>';
-  document.getElementById('asof').textContent = stamp(now);
+  return d.hospitals.map((h, order) => {
+    const s = d.state[h.id] || {};
+    const active = Object.entries(s).filter(([, v]) => v.active && v.since <= d.now)
+      .sort(([a], [b]) => (a === 'ed' ? -1 : b === 'ed' ? 1 : 0))
+      .map(([k, v]) => ({ id: k, label: label(k), ...v, stale: d.now - v.lastConfirmed > STALE_MS }));
+    const sched = Object.entries(s).filter(([, v]) => v.active && v.since > d.now).map(([k, v]) => ({ id: k, label: label(k), ...v }));
+    const last = Object.values(s).map(v => byId[v.last]).filter(Boolean).sort((a, b) => b.sentAt - a.sentAt)[0];
+    const kind = active.length ? (active.some(a => a.id === 'ed') ? 'divert' : 'partial') : sched.length ? 'sched' : 'open';
+    return { ...h, order, kind, active, sched, last };
+  });
 }
 
+function renderPhone(d, hs) {
+  const nD = hs.filter(h => h.kind === 'divert' || h.kind === 'partial').length;
+  const nS = hs.filter(h => h.kind === 'sched').length;
+  document.getElementById('tally').innerHTML =
+    `<span class="d"><b>${nD}</b> on divert</span><span><b>${hs.length - nD - nS}</b> open</span>` + (nS ? `<span><b>${nS}</b> scheduled</span>` : '');
+  const sorted = [...hs].sort((a, b) => RANK[a.kind] - RANK[b.kind] || a.order - b.order);
+  const list = document.getElementById('list');
+  const openIds = new Set([...list.querySelectorAll('.row[data-open]')].map(r => r.dataset.id));
+  list.innerHTML = sorted.map(h => {
+    const pills = h.active.length ? h.active.map(a => `<span class="pill ${a.id === 'ed' ? 'divert' : 'partial'}">${esc(a.label)} divert</span>`).join('')
+      : h.sched.length ? `<span class="pill sched">Divert at ${hhmm(h.sched[0].since)}</span>` : '<span class="pill open">Open</span>';
+    let sub = '';
+    for (const a of h.active) {
+      sub += `<span>${a.active && h.active.length > 1 ? esc(a.label) + ' ' : ''}${a.sinceUnknown ? 'reported' : 'since'} <span class="num">${hhmm(a.since)}</span> · ${dur(a.since, d.now)}</span>`;
+      sub += a.stale ? `<span class="stale">Not confirmed in ${dur(a.lastConfirmed, d.now)}</span>` : `<span>confirmed <span class="num">${hhmm(a.lastConfirmed)}</span></span>`;
+    }
+    for (const s of h.sched) sub += `<span>${esc(s.label)} divert starts <span class="num">${hhmm(s.since)}</span></span>`;
+    const more = h.last ? `<div class="more"><q>${esc(h.last.text)}</q><span class="who">${esc(h.last.from)} · ${day(h.last.sentAt)} <span class="num">${hhmm(h.last.sentAt)}</span></span></div>`
+      : '<div class="more"><span class="who">No reports in the last 14 days.</span></div>';
+    const isOpen = openIds.has(h.id);
+    return `<div class="row ${h.kind}" data-id="${h.id}"${isOpen ? ' data-open' : ''}>
+      <button type="button" aria-expanded="${isOpen}"><span class="name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</span><span class="pills">${pills}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</button>
+      <div ${isOpen ? '' : 'hidden'}>${more}</div></div>`;
+  }).join('');
+  const hName = id => d.hospitals.find(x => x.id === id).name;
+  const label = id => d.services.find(s => s.id === id).label;
+  document.getElementById('msgs').innerHTML = d.messages.slice(0, 40).map(m => {
+    const read = m.parsed.ok
+      ? '<span class="read">Read as: ' + m.parsed.events.map(e => `${esc(hName(e.hospitalId))} ${label(e.service)} ${e.kind === 'off' ? 'off' : e.kind === 'confirm' ? 'still on' : 'on'} at ${hhmm(e.effectiveAt)}`).join('; ') + '</span>'
+      : `<span class="read no">Not read as a status (${esc(m.parsed.reason.toLowerCase())})</span>`;
+    return `<div class="msg"><span class="meta"><span>${esc(m.from)}</span><span class="num">${day(m.sentAt)} ${hhmm(m.sentAt)}</span></span><span>${esc(m.text)}</span>${read}</div>`;
+  }).join('') || '<div class="msg">No messages yet.</div>';
+}
+
+function renderTV(d, hs) {
+  const nD = hs.filter(h => h.kind === 'divert' || h.kind === 'partial').length;
+  document.getElementById('tv-tally').innerHTML = `<span class="d"><b>${nD}</b> on divert</span><span><b>${hs.length - nD}</b> open</span>`;
+  document.getElementById('tv-grid').innerHTML = hs.map(h => {
+    let state = 'Open', info = '';
+    if (h.active.length) {
+      state = h.active.map(a => esc(a.label)).join(' + ') + ' Divert';
+      const a = h.active[0];
+      info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${hhmm(a.since)} · ${dur(a.since, d.now)}</span>` +
+        (a.stale ? `<span class="stale">Not confirmed ${dur(a.lastConfirmed, d.now)}</span>` : `<span>Confirmed ${hhmm(a.lastConfirmed)}</span>`);
+    } else if (h.sched.length) {
+      state = 'Divert ' + hhmm(h.sched[0].since);
+      info = `<span>${esc(h.sched[0].label)} divert scheduled</span>`;
+    } else if (h.last) info = `<span>Last change ${day(h.last.sentAt)}</span>`;
+    return `<div class="tile ${h.kind}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div><div class="t-state">${state}</div><div class="t-info">${info}</div></div>`;
+  }).join('');
+}
+
+let lastData = null, lastOk = 0;
+function render() {
+  if (!lastData) return;
+  const hs = summarize(lastData);
+  renderPhone(lastData, hs);
+  renderTV(lastData, hs);
+  stamp();
+}
+function stamp() {
+  const ago = lastOk ? Math.round((Date.now() - lastOk) / 1000) : null;
+  const txt = ago === null ? 'Loading…' : ago < 60 ? 'Updated just now' : 'Updated ' + dur(lastOk, Date.now()) + ' ago';
+  document.getElementById('upd').textContent = txt;
+  document.getElementById('tv-upd').textContent = txt;
+  document.getElementById('dot').classList.toggle('bad', ago === null || ago > 120);
+  document.getElementById('tv-clock').textContent = hhmm(clockNow());
+}
+
+document.getElementById('list').addEventListener('click', e => {
+  const btn = e.target.closest('.row > button'); if (!btn) return;
+  const row = btn.parentElement, more = btn.nextElementSibling, open = more.hidden;
+  more.hidden = !open; btn.setAttribute('aria-expanded', open);
+  if (open) row.dataset.open = ''; else delete row.dataset.open;
+});
+
+function applyMode() { document.documentElement.dataset.mode = location.hash === '#tv' ? 'tv' : 'phone'; }
+window.addEventListener('hashchange', applyMode);
+applyMode();
+
 async function refresh() {
-  const err = document.getElementById('error');
+  const err = document.getElementById('err');
   try {
-    const r = await fetch('/api/status', { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    render(await r.json());
+    lastData = await loadData();
+    lastOk = Date.now();
     err.hidden = true;
+    render();
   } catch (e) {
-    err.textContent = 'Could not reach the server (' + e.message + '). Showing the last status loaded; retrying every 30 seconds.';
+    err.textContent = 'Can’t reach the server right now. Showing the last status loaded, and retrying every 30 seconds.';
     err.hidden = false;
+    stamp();
   }
 }
 refresh();
 setInterval(refresh, REFRESH_MS);
+setInterval(stamp, 10000);
 </script>
-</body></html>
+</body>
+</html>

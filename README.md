@@ -10,6 +10,7 @@ A GroupMe bot posts every new group message to this Cloudflare Worker. The Worke
 - ER and ED both mean ED divert. Stroke, STEMI, trauma, OB, peds and CT are tracked separately.
 - A stated time (`as of 2000`, `at 0014`, `starting at 18:00`) is used as the effective time, in Central time.
 - Messages with no divert language, no known hospital, or more than one hospital are shown in the log as not a status.
+- The page is a phone layout; add `#tv` to the address for a full-screen TV board.
 - Edited GroupMe messages are not seen; GroupMe only sends new messages to bots.
 
 Hospital names and nicknames live in `HOSPITALS` in `src/parser.js`.
