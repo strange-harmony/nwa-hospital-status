@@ -37,7 +37,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     // The token in the path keeps strangers from posting fake statuses.
-    if (request.method === 'POST' && url.pathname === `/groupme/${env.GROUPME_PATH_TOKEN}`) return receiveGroupMe(request, env);
+    if (request.method === 'POST' && env.GROUPME_PATH_TOKEN && url.pathname === `/groupme/${env.GROUPME_PATH_TOKEN}`) return receiveGroupMe(request, env);
     if (request.method === 'GET' && url.pathname === '/api/status') return status(env);
     return env.ASSETS.fetch(request);
   },
