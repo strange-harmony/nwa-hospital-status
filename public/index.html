@@ -6,130 +6,57 @@
 <title>NWA Hospital Status</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: phone = one sticky header + a status list sorted by severity, details on tap.
-   TV (#tv) = fixed dark 4x2 board that fills the screen, readable across a room. */
+/* Layout: one dark board that fills the screen (4x2 landscape, 2x4 portrait), readable across a room. Dark only, by design. */
 :root {
-  --bg: #eef1f5; --panel: #ffffff; --ink: #141b24; --muted: #5b6676; --line: #d9dfe7;
-  --accent: #1f5fae;
-  --open: #17733f; --open-bg: #e2f3e8;
-  --divert: #b3261e; --divert-bg: #fce7e5; --divert-strong: #c62a20;
-  --partial: #9a5200; --partial-bg: #fcefd9;
-  --sched: #5847b5; --sched-bg: #ebe8fb;
-  --stale: #8a6d00;
+  --bg: #0d1218; --panel: #161d26; --ink: #e7ecf2; --muted: #95a1b2;
+  --open: #5bcf8a; --divert: #d63a2f; --partial: #ffb757; --sched: #b5aaff; --stale: #e6cc5c; --warn-ink: #ffe98a;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --cond: "IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0d1218; --panel: #161d26; --ink: #e7ecf2; --muted: #95a1b2; --line: #273141;
-  --accent: #6ea8ff; --open: #5bcf8a; --open-bg: #12301e; --divert: #ff8b80; --divert-bg: #3c1613; --divert-strong: #d63a2f;
-  --partial: #ffb757; --partial-bg: #3a290e; --sched: #b5aaff; --sched-bg: #251f45; --stale: #e6cc5c; color-scheme: dark } }
-:root[data-theme="dark"], :root[data-mode="tv"] {
-  --bg: #0d1218; --panel: #161d26; --ink: #e7ecf2; --muted: #95a1b2; --line: #273141;
-  --accent: #6ea8ff; --open: #5bcf8a; --open-bg: #12301e; --divert: #ff8b80; --divert-bg: #3c1613; --divert-strong: #d63a2f;
-  --partial: #ffb757; --partial-bg: #3a290e; --sched: #b5aaff; --sched-bg: #251f45; --stale: #e6cc5c; color-scheme: dark }
-body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.4; }
-.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-
-/* ---------- Phone / default ---------- */
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
-.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
-.top-in, .main { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.top-in { padding-block: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.top h1 { font-family: var(--cond); font-size: 1.2rem; font-weight: 700; margin: 0; letter-spacing: .01em; }
-.updated { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--open); }
-.dot.bad { background: var(--divert); }
-.bar { display: flex; justify-content: space-between; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
-.top h1, .tvlink { white-space: nowrap; }
-.tvlink { font-size: .78rem; color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
-.tvlink:hover { border-color: var(--accent); }
-.main { padding-block: 14px 40px; display: grid; gap: 14px; }
-.tally { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .9rem; color: var(--muted); }
-.tally b { color: var(--ink); font-weight: 600; }
-.tally .d b { color: var(--divert); }
-.err { background: var(--divert-bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font-size: .88rem; }
-.list { display: grid; gap: 8px; }
-.row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.row > button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 14px; cursor: pointer; align-items: center; }
-.row > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 10px; }
-.row.divert { border-color: color-mix(in srgb, var(--divert) 45%, var(--line)); box-shadow: inset 4px 0 0 var(--divert); }
-.row.partial { box-shadow: inset 4px 0 0 var(--partial); }
-.row.sched { box-shadow: inset 4px 0 0 var(--sched); }
-.name { font-weight: 600; font-size: 1rem; min-width: 0; }
-.name small { color: var(--muted); font-weight: 500; font-size: .72rem; letter-spacing: .06em; margin-left: 6px; }
-.pills { display: flex; gap: 5px; justify-content: flex-end; flex-wrap: wrap; }
-.pill { font-family: var(--cond); font-weight: 700; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
-.pill.open { color: var(--open); background: var(--open-bg); }
-.pill.divert { color: #fff; background: var(--divert-strong); }
-.pill.partial { color: var(--partial); background: var(--partial-bg); }
-.pill.sched { color: var(--sched); background: var(--sched-bg); }
-.sub { grid-column: 1 / -1; font-size: .82rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; }
-.sub .stale { color: var(--stale); font-weight: 600; }
-.more { padding: 0 14px 12px; font-size: .85rem; display: grid; gap: 4px; border-top: 1px dashed var(--line); padding-top: 10px; }
-.more q { font-style: italic; overflow-wrap: anywhere; }
-.more .who { color: var(--muted); font-size: .8rem; }
-details.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-details.log summary { padding: 12px 14px; cursor: pointer; font-weight: 600; font-size: .92rem; }
-.msgs { display: grid; border-top: 1px solid var(--line); }
-.msg { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 3px; font-size: .86rem; }
-.msg:last-child { border-bottom: 0; }
-.msg .meta { color: var(--muted); font-size: .76rem; display: flex; gap: 10px; flex-wrap: wrap; }
-.msg .read { font-size: .76rem; color: var(--muted); }
-.msg .read.no { color: var(--stale); }
-.foot { font-size: .78rem; color: var(--muted); text-align: center; }
-
-/* ---------- TV ---------- */
-:root[data-mode="tv"], :root[data-mode="tv"] body { height: 100%; overflow: hidden; }
-.tv { display: none; }
-:root[data-mode="tv"] .phone { display: none; }
-:root[data-mode="tv"] body::before { display: none; }
-:root[data-mode="tv"] .tv { display: grid; grid-template-rows: auto 1fr auto; height: 100%; gap: 1.2vh; padding-block: 2vh; padding-left: max(2vw, env(safe-area-inset-left, 0px)); padding-right: max(2vw, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+.tv { display: grid; grid-template-rows: auto 1fr auto; height: 100%; gap: 1.2vh; padding-block: 2vh; padding-left: max(2vw, 16px, env(safe-area-inset-left, 0px)); padding-right: max(2vw, 16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
 .tv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 2vw; }
-.tv-head h1 { font-family: var(--cond); font-weight: 700; font-size: clamp(20px, 3.4vh, 48px); margin: 0; letter-spacing: .02em; text-transform: uppercase; }
-.tv-head .tally { font-size: clamp(14px, 2.4vh, 32px); }
-.tv-clock { font-family: var(--mono); font-weight: 600; font-size: clamp(24px, 5vh, 72px); line-height: 1; }
+.tv-head h1 { font-family: var(--cond); font-weight: 700; font-size: clamp(18px, 3.4vh, 48px); margin: 0; letter-spacing: .02em; text-transform: uppercase; }
+.tally { display: flex; gap: 1.2em; color: var(--muted); font-size: clamp(13px, 2.4vh, 32px); }
+.tally b { color: var(--ink); font-weight: 600; }
+.tally .d b { color: #ff8b80; }
+.tv-clock { font-family: var(--mono); font-weight: 600; font-size: clamp(22px, 5vh, 72px); line-height: 1; font-variant-numeric: tabular-nums; }
 .tv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 1.2vh 1vw; min-height: 0; }
 .tile { background: var(--panel); border-radius: 1.2vh; padding: 2vh 1.4vw; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; overflow: hidden; border: 2px solid transparent; }
-.tile .t-name { font-family: var(--cond); font-weight: 600; font-size: clamp(16px, 3.6vh, 52px); line-height: 1.05; }
-.tile .t-name small { display: block; font-size: .5em; color: var(--muted); letter-spacing: .1em; margin-top: .3vh; }
-.tile .t-state { align-self: center; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(22px, 6.4vh, 96px); line-height: 1; }
-.tile .t-info { font-family: var(--mono); font-size: clamp(12px, 2.2vh, 30px); color: var(--muted); display: grid; gap: .4vh; }
+.t-name { font-family: var(--cond); font-weight: 600; font-size: clamp(14px, min(3.6vh, 2.2vw), 52px); line-height: 1.05; }
+.t-name small { display: block; font-size: .5em; color: var(--muted); letter-spacing: .1em; margin-top: .3vh; }
+.t-state { align-self: center; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(16px, min(6.4vh, 3.6vw), 96px); line-height: 1; }
+.t-info { font-family: var(--mono); font-size: clamp(11px, 2.2vh, 30px); color: var(--muted); display: grid; gap: .4vh; font-variant-numeric: tabular-nums; }
 .tile.open .t-state { color: var(--open); }
-.tile.divert { background: var(--divert-strong); }
+.tile.divert { background: var(--divert); }
 .tile.divert, .tile.divert .t-name small, .tile.divert .t-info { color: #fff; }
 .tile.partial { border-color: var(--partial); }
 .tile.partial .t-state { color: var(--partial); }
 .tile.sched .t-state { color: var(--sched); }
-.tile .stale { color: var(--stale); }
-.tile.divert .stale { color: #ffe98a; }
-.tv-foot { display: flex; justify-content: space-between; gap: 2vw; font-size: clamp(11px, 1.7vh, 22px); color: var(--muted); }
-.tv-foot a { color: var(--muted); }
-@media (prefers-reduced-motion: no-preference) { .tile, .row { transition: background-color .3s, border-color .3s; } }
-@media (orientation: portrait) { .tv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); } }
+.stale { color: var(--stale); }
+.tile.divert .stale { color: var(--warn-ink); }
+.tv-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .4vh 2vw; font-size: clamp(11px, 1.7vh, 22px); color: var(--muted); }
+.tv-foot .bad { color: var(--stale); font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) { .tile { transition: background-color .3s, border-color .3s; } }
+@media (orientation: portrait) {
+  .tv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
+  .t-state { font-size: clamp(16px, min(5vh, 7.5vw), 96px); }
+  .t-name { font-size: clamp(14px, min(3vh, 4.6vw), 52px); }
+  .t-info { font-size: clamp(10px, min(1.8vh, 3vw), 30px); }
+}
 </style>
 </head>
 <body>
-<div class="phone">
-  <header class="top"><div class="top-in">
-    <h1>NWA Hospital Status</h1>
-    <a class="tvlink" href="#tv">TV view</a>
-  </div></header>
-  <main class="main">
-    <div class="err" id="err" hidden></div>
-    <div class="bar"><div class="tally" id="tally"></div><span class="updated"><span class="dot" id="dot"></span><span id="upd">Loading…</span></span></div>
-    <div class="list" id="list"></div>
-    <details class="log"><summary>Recent GroupMe messages</summary><div class="msgs" id="msgs"></div></details>
-    <p class="foot">Read automatically from the hospital GroupMe group. Confirm with the hospital before relying on it.</p>
-  </main>
-</div>
 <div class="tv">
   <div class="tv-head">
-    <div><h1>NWA Hospital Status</h1><div class="tally" id="tv-tally"></div></div>
-    <div class="tv-clock" id="tv-clock"></div>
+    <div><h1>NWA Hospital Status</h1><div class="tally" id="tally"></div></div>
+    <div class="tv-clock" id="clock"></div>
   </div>
-  <div class="tv-grid" id="tv-grid"></div>
-  <div class="tv-foot"><span id="tv-upd"></span><span>Confirm with the hospital before relying on it. <a href="#">Exit TV view</a></span></div>
+  <div class="tv-grid" id="grid"></div>
+  <div class="tv-foot"><span id="upd">Loading…</span><span>Read from the hospital GroupMe group. Confirm with the hospital before relying on it.</span></div>
 </div>
 <script>
 const clockNow = () => Date.now();
@@ -150,13 +77,13 @@ function dur(from, to) {
   if (m < 60) return m + 'm';
   return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm';
 }
-const RANK = { divert: 0, partial: 1, sched: 2, open: 3 };
 
 // Boils the API's per-service state down to one summary per hospital.
 function summarize(d) {
   const label = id => d.services.find(s => s.id === id).label;
   const byId = Object.fromEntries(d.messages.map(m => [m.id, m]));
-  return d.hospitals.map((h, order) => {
+  const byName = [...d.hospitals].sort((a, b) => a.name.localeCompare(b.name));
+  return byName.map(h => {
     const s = d.state[h.id] || {};
     const active = Object.entries(s).filter(([, v]) => v.active && v.since <= d.now)
       .sort(([a], [b]) => (a === 'ed' ? -1 : b === 'ed' ? 1 : 0))
@@ -164,48 +91,15 @@ function summarize(d) {
     const sched = Object.entries(s).filter(([, v]) => v.active && v.since > d.now).map(([k, v]) => ({ id: k, label: label(k), ...v }));
     const last = Object.values(s).map(v => byId[v.last]).filter(Boolean).sort((a, b) => b.sentAt - a.sentAt)[0];
     const kind = active.length ? (active.some(a => a.id === 'ed') ? 'divert' : 'partial') : sched.length ? 'sched' : 'open';
-    return { ...h, order, kind, active, sched, last };
+    return { ...h, kind, active, sched, last };
   });
 }
 
-function renderPhone(d, hs) {
+function render(d) {
+  const hs = summarize(d);
   const nD = hs.filter(h => h.kind === 'divert' || h.kind === 'partial').length;
-  const nS = hs.filter(h => h.kind === 'sched').length;
-  document.getElementById('tally').innerHTML =
-    `<span class="d"><b>${nD}</b> on divert</span><span><b>${hs.length - nD - nS}</b> open</span>` + (nS ? `<span><b>${nS}</b> scheduled</span>` : '');
-  const sorted = [...hs].sort((a, b) => RANK[a.kind] - RANK[b.kind] || a.order - b.order);
-  const list = document.getElementById('list');
-  const openIds = new Set([...list.querySelectorAll('.row[data-open]')].map(r => r.dataset.id));
-  list.innerHTML = sorted.map(h => {
-    const pills = h.active.length ? h.active.map(a => `<span class="pill ${a.id === 'ed' ? 'divert' : 'partial'}">${esc(a.label)} divert</span>`).join('')
-      : h.sched.length ? `<span class="pill sched">Divert at ${hhmm(h.sched[0].since)}</span>` : '<span class="pill open">Open</span>';
-    let sub = '';
-    for (const a of h.active) {
-      sub += `<span>${a.active && h.active.length > 1 ? esc(a.label) + ' ' : ''}${a.sinceUnknown ? 'reported' : 'since'} <span class="num">${hhmm(a.since)}</span> · ${dur(a.since, d.now)}</span>`;
-      sub += a.stale ? `<span class="stale">Not confirmed in ${dur(a.lastConfirmed, d.now)}</span>` : `<span>confirmed <span class="num">${hhmm(a.lastConfirmed)}</span></span>`;
-    }
-    for (const s of h.sched) sub += `<span>${esc(s.label)} divert starts <span class="num">${hhmm(s.since)}</span></span>`;
-    const more = h.last ? `<div class="more"><q>${esc(h.last.text)}</q><span class="who">${esc(h.last.from)} · ${day(h.last.sentAt)} <span class="num">${hhmm(h.last.sentAt)}</span></span></div>`
-      : '<div class="more"><span class="who">No reports in the last 14 days.</span></div>';
-    const isOpen = openIds.has(h.id);
-    return `<div class="row ${h.kind}" data-id="${h.id}"${isOpen ? ' data-open' : ''}>
-      <button type="button" aria-expanded="${isOpen}"><span class="name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</span><span class="pills">${pills}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</button>
-      <div ${isOpen ? '' : 'hidden'}>${more}</div></div>`;
-  }).join('');
-  const hName = id => d.hospitals.find(x => x.id === id).name;
-  const label = id => d.services.find(s => s.id === id).label;
-  document.getElementById('msgs').innerHTML = d.messages.slice(0, 40).map(m => {
-    const read = m.parsed.ok
-      ? '<span class="read">Read as: ' + m.parsed.events.map(e => `${esc(hName(e.hospitalId))} ${label(e.service)} ${e.kind === 'off' ? 'off' : e.kind === 'confirm' ? 'still on' : 'on'} at ${hhmm(e.effectiveAt)}`).join('; ') + '</span>'
-      : `<span class="read no">Not read as a status (${esc(m.parsed.reason.toLowerCase())})</span>`;
-    return `<div class="msg"><span class="meta"><span>${esc(m.from)}</span><span class="num">${day(m.sentAt)} ${hhmm(m.sentAt)}</span></span><span>${esc(m.text)}</span>${read}</div>`;
-  }).join('') || '<div class="msg">No messages yet.</div>';
-}
-
-function renderTV(d, hs) {
-  const nD = hs.filter(h => h.kind === 'divert' || h.kind === 'partial').length;
-  document.getElementById('tv-tally').innerHTML = `<span class="d"><b>${nD}</b> on divert</span><span><b>${hs.length - nD}</b> open</span>`;
-  document.getElementById('tv-grid').innerHTML = hs.map(h => {
+  document.getElementById('tally').innerHTML = `<span class="d"><b>${nD}</b> on divert</span><span><b>${hs.length - nD}</b> open</span>`;
+  document.getElementById('grid').innerHTML = hs.map(h => {
     let state = 'Open', info = '';
     if (h.active.length) {
       state = h.active.map(a => esc(a.label)).join(' + ') + ' Divert';
@@ -220,46 +114,24 @@ function renderTV(d, hs) {
   }).join('');
 }
 
-let lastData = null, lastOk = 0;
-function render() {
-  if (!lastData) return;
-  const hs = summarize(lastData);
-  renderPhone(lastData, hs);
-  renderTV(lastData, hs);
-  stamp();
-}
+let lastOk = 0, failing = false;
 function stamp() {
-  const ago = lastOk ? Math.round((Date.now() - lastOk) / 1000) : null;
-  const txt = ago === null ? 'Loading…' : ago < 60 ? 'Updated just now' : 'Updated ' + dur(lastOk, Date.now()) + ' ago';
-  document.getElementById('upd').textContent = txt;
-  document.getElementById('tv-upd').textContent = txt;
-  document.getElementById('dot').classList.toggle('bad', ago === null || ago > 120);
-  document.getElementById('tv-clock').textContent = hhmm(clockNow());
+  document.getElementById('clock').textContent = hhmm(clockNow());
+  const upd = document.getElementById('upd');
+  if (!lastOk) { upd.textContent = failing ? 'Can’t reach the server. Retrying every 30 seconds.' : 'Loading…'; upd.className = failing ? 'bad' : ''; return; }
+  const age = Date.now() - lastOk;
+  upd.textContent = failing ? `Can’t reach the server. Showing status from ${dur(lastOk, Date.now())} ago.` : age < 60000 ? 'Updated just now' : `Updated ${dur(lastOk, Date.now())} ago`;
+  upd.className = failing ? 'bad' : '';
 }
-
-document.getElementById('list').addEventListener('click', e => {
-  const btn = e.target.closest('.row > button'); if (!btn) return;
-  const row = btn.parentElement, more = btn.nextElementSibling, open = more.hidden;
-  more.hidden = !open; btn.setAttribute('aria-expanded', open);
-  if (open) row.dataset.open = ''; else delete row.dataset.open;
-});
-
-function applyMode() { document.documentElement.dataset.mode = location.hash === '#tv' ? 'tv' : 'phone'; }
-window.addEventListener('hashchange', applyMode);
-applyMode();
 
 async function refresh() {
-  const err = document.getElementById('err');
   try {
-    lastData = await loadData();
-    lastOk = Date.now();
-    err.hidden = true;
-    render();
+    render(await loadData());
+    lastOk = Date.now(); failing = false;
   } catch (e) {
-    err.textContent = 'Can’t reach the server right now. Showing the last status loaded, and retrying every 30 seconds.';
-    err.hidden = false;
-    stamp();
+    failing = true;
   }
+  stamp();
 }
 refresh();
 setInterval(refresh, REFRESH_MS);
