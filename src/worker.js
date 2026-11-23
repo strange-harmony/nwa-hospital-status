@@ -1,4 +1,6 @@
 import { HOSPITALS, SERVICES, parseMessage, buildState } from './parser.js';
+import { saveMessage } from './store.js';
+import { pollGroupMe } from './poll.js';
 
 // How far back to replay messages when building current status.
 const HISTORY_DAYS = 14;
@@ -10,12 +12,9 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 async function receiveGroupMe(request, env) {
   let body;
   try { body = await request.json(); } catch { return new Response('bad json', { status: 400 }); }
-  // Ignore our own bot and system notices; only people post statuses.
-  if (body.sender_type !== 'user' || !body.text || !body.id) return new Response('ignored');
   if (env.GROUPME_GROUP_ID && String(body.group_id) !== env.GROUPME_GROUP_ID) return new Response('wrong group', { status: 403 });
-  await env.DB.prepare('INSERT OR IGNORE INTO messages (id, group_id, sender, text, sent_at, received_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(String(body.id), String(body.group_id), body.name || 'Unknown', body.text, (body.created_at || Date.now() / 1000) * 1000, Date.now())
-    .run();
+  // saveMessage skips bots and system notices; only people post statuses.
+  await saveMessage(env, body);
   return new Response('ok');
 }
 
@@ -40,5 +39,8 @@ export default {
     if (request.method === 'POST' && env.GROUPME_PATH_TOKEN && url.pathname === `/groupme/${env.GROUPME_PATH_TOKEN}`) return receiveGroupMe(request, env);
     if (request.method === 'GET' && url.pathname === '/api/status') return status(env);
     return env.ASSETS.fetch(request);
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(pollGroupMe(env));
   },
 };

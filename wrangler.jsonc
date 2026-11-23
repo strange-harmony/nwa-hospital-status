@@ -6,6 +6,12 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "nwa-hospital-status", "database_id": "16ac4372-d028-4b1c-97ff-ee2cfd1e532a" }
   ],
-  "vars": { "GROUPME_GROUP_ID": "" }
-  // Secret, set with: npx wrangler secret put GROUPME_PATH_TOKEN
+  // Checks GroupMe for new messages every minute when GROUPME_TOKEN is set (no bot needed).
+  "triggers": { "crons": ["* * * * *"] },
+  // Keep variables set in the dashboard when a push redeploys.
+  "keep_vars": true
+  // Set in the Cloudflare dashboard (Settings > Variables and Secrets):
+  //   GROUPME_GROUP_ID   the group's id (text variable)
+  //   GROUPME_TOKEN      a member's GroupMe access token (secret), for polling
+  //   GROUPME_PATH_TOKEN random string (secret), only if a bot posts to /groupme/<token>
 }
