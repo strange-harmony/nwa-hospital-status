@@ -86,6 +86,8 @@ const REFRESH_MS = 30000;
 const STALE_MS = 6 * 3600e3;
 const TZ = 'America/Chicago';
 const hhmm = ms => new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).replace(':', '');
+// "Updated at 14:03 on 11/21/2026"
+const updated = ms => `Updated at ${new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} on ${new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, month: 'numeric', day: 'numeric', year: 'numeric' })}`;
 const day = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric' });
 // "ED Delay" is its own status; everything else reads as "<service> Divert".
 const statusName = a => a.id === 'delay' ? a.label : a.label + ' Divert';
@@ -135,11 +137,11 @@ function render(d) {
       const newest = Math.max(...h.active.map(x => x.lastConfirmed));
       if (old) banner = `<div class="age">Last report ${age(newest, d.now)} ago</div>`;
       // The age banner already says how old it is, so skip the time lines on old reports.
-      if (!old) info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${hhmm(a.since)}</span><span>Confirmed ${hhmm(newest)}</span>`;
+      if (!old) info = `<span>${updated(newest)}</span>`;
     } else if (h.sched.length) {
       state = 'Divert ' + hhmm(h.sched[0].since);
       info = `<span>${esc(statusName(h.sched[0]))} scheduled</span>`;
-    } else if (h.last) info = `<span>Last report ${age(h.last.sentAt, d.now)} ago</span>`;
+    } else if (h.last) info = `<span>${updated(h.last.sentAt)}</span>`;
     const isOld = !!banner;
     return `<div class="tile ${h.kind}${isOld ? ' old' : ''}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div><div></div><div class="t-state">${state}</div>${banner || `<div class="t-info">${info}</div>`}</div>`;
   }).join('');
