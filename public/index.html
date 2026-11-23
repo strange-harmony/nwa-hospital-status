@@ -24,7 +24,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
 .tally b { color: var(--ink); font-weight: 600; }
 .tally .d b { color: #ff8b80; }
 .tv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 1.2vh 1vw; min-height: 0; }
-.tile { background: var(--panel); border-radius: 1.2vh; padding: 2vh 1.4vw; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; overflow: hidden; border: 2px solid transparent; }
+.tile { background: var(--panel); border-radius: 1.2vh; padding: 2vh 1.4vw; display: grid; grid-template-rows: auto auto 1fr auto; min-width: 0; min-height: 0; overflow: hidden; border: 2px solid transparent; }
 .t-name { font-family: var(--cond); font-weight: 600; font-size: clamp(14px, min(3.6vh, 2.2vw), 52px); line-height: 1.05; }
 .t-name small { display: block; font-size: .5em; color: var(--muted); letter-spacing: .1em; margin-top: .3vh; }
 .t-state { align-self: center; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: clamp(16px, min(6.4vh, 3.6vw), 96px); line-height: 1; }
@@ -36,7 +36,11 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
 .tile.partial .t-state { color: var(--partial); }
 .tile.sched .t-state { color: var(--sched); }
 .stale { color: var(--stale); }
-.tile.divert .stale { color: var(--warn-ink); }
+/* A divert nobody has confirmed lately: faded status, dashed border, and an age banner you can read across the room. */
+.tile.old { border: 2px dashed var(--stale); }
+.tile.old .t-state { opacity: .55; }
+.tile.divert.old { background: color-mix(in srgb, var(--divert) 45%, var(--panel)); }
+.age { justify-self: start; align-self: start; background: var(--stale); color: #1a1600; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: clamp(12px, min(2.4vh, 1.5vw), 32px); padding: .3em .6em; border-radius: .35em; margin-top: .6vh; }
 .tv-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .4vh 2vw; font-size: clamp(11px, 1.7vh, 22px); color: var(--muted); }
 .tv-foot .bad { color: var(--stale); font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) { .tile { transition: background-color .3s, border-color .3s; } }
@@ -45,6 +49,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
   .t-state { font-size: clamp(16px, min(5vh, 7.5vw), 96px); }
   .t-name { font-size: clamp(14px, min(3vh, 4.6vw), 52px); }
   .t-info { font-size: clamp(10px, min(1.8vh, 3vw), 30px); }
+  .age { font-size: clamp(11px, min(2vh, 3.2vw), 32px); }
 }
 /* Phones: let the page scroll and size each tile to its content instead of squeezing all 8 into one screen. */
 @media (max-width: 700px) {
@@ -53,10 +58,11 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
   .tv-head h1 { font-size: 20px; }
   .tally { font-size: 15px; }
   .tv-grid { grid-template-rows: none; grid-auto-rows: auto; gap: 8px; }
-  .tile { padding: 12px; gap: 6px; border-radius: 10px; grid-template-rows: auto auto auto; }
+  .tile { padding: 12px; gap: 6px; border-radius: 10px; grid-template-rows: auto auto auto auto; }
   .t-name { font-size: 16px; }
   .t-state { font-size: clamp(18px, 6.2vw, 30px); align-self: start; }
   .t-info { font-size: 12px; gap: 2px; }
+  .age { font-size: 12px; margin-top: 2px; }
   .tv-foot { font-size: 12px; }
 }
 </style>
@@ -84,6 +90,14 @@ const day = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, month
 // "ED Delay" is its own status; everything else reads as "<service> Divert".
 const statusName = a => a.id === 'delay' ? a.label : a.label + ' Divert';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Plain-language age for banners: "45 min", "7 hours", "5 days".
+function age(from, to) {
+  const m = Math.max(0, Math.round((to - from) / 60000));
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60);
+  if (h < 48) return h + (h === 1 ? ' hour' : ' hours');
+  return Math.floor(h / 24) + ' days';
+}
 function dur(from, to) {
   const m = Math.max(0, Math.round((to - from) / 60000));
   if (m < 60) return m + 'm';
@@ -113,17 +127,21 @@ function render(d) {
   const nD = hs.filter(h => h.kind === 'divert' || h.kind === 'partial').length;
   document.getElementById('tally').innerHTML = `<span class="d"><b>${nD}</b> on divert</span><span><b>${hs.length - nD}</b> open</span>`;
   document.getElementById('grid').innerHTML = hs.map(h => {
-    let state = 'Open', info = '';
+    let state = 'Open', info = '', banner = '';
     if (h.active.length) {
       state = h.active.map(a => esc(statusName(a))).join(' + ');
       const a = h.active[0];
-      info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${hhmm(a.since)} · ${dur(a.since, d.now)}</span>` +
-        (a.stale ? `<span class="stale">Not confirmed ${dur(a.lastConfirmed, d.now)}</span>` : `<span>Confirmed ${hhmm(a.lastConfirmed)}</span>`);
+      const old = h.active.every(x => x.stale);
+      const newest = Math.max(...h.active.map(x => x.lastConfirmed));
+      if (old) banner = `<div class="age">Last report ${age(newest, d.now)} ago</div>`;
+      info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${old ? day(a.since) + ' ' : ''}${hhmm(a.since)}</span>` +
+        `<span>Confirmed ${old ? day(newest) + ' ' : ''}${hhmm(newest)}</span>`;
     } else if (h.sched.length) {
       state = 'Divert ' + hhmm(h.sched[0].since);
       info = `<span>${esc(statusName(h.sched[0]))} scheduled</span>`;
-    } else if (h.last) info = `<span>Changed ${day(h.last.sentAt)}</span>`;
-    return `<div class="tile ${h.kind}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div><div class="t-state">${state}</div><div class="t-info">${info}</div></div>`;
+    } else if (h.last) info = `<span>Last report ${age(h.last.sentAt, d.now)} ago</span>`;
+    const isOld = !!banner;
+    return `<div class="tile ${h.kind}${isOld ? ' old' : ''}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div>${banner || '<div></div>'}<div class="t-state">${state}</div><div class="t-info">${info}</div></div>`;
   }).join('');
 }
 
