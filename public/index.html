@@ -40,7 +40,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
 .tile.old { border: 2px dashed var(--stale); }
 .tile.old .t-state { opacity: .55; }
 .tile.divert.old { background: color-mix(in srgb, var(--divert) 45%, var(--panel)); }
-.age { justify-self: start; align-self: start; background: var(--stale); color: #1a1600; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: clamp(12px, min(2.4vh, 1.5vw), 32px); padding: .3em .6em; border-radius: .35em; margin-top: .6vh; }
+.age { justify-self: start; align-self: end; background: var(--stale); color: #1a1600; font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: clamp(12px, min(2.4vh, 1.5vw), 32px); padding: .3em .6em; border-radius: .35em; margin-top: .6vh; }
 .tv-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .4vh 2vw; font-size: clamp(11px, 1.7vh, 22px); color: var(--muted); }
 .tv-foot .bad { color: var(--stale); font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) { .tile { transition: background-color .3s, border-color .3s; } }
@@ -141,7 +141,7 @@ function render(d) {
       info = `<span>${esc(statusName(h.sched[0]))} scheduled</span>`;
     } else if (h.last) info = `<span>Last report ${age(h.last.sentAt, d.now)} ago</span>`;
     const isOld = !!banner;
-    return `<div class="tile ${h.kind}${isOld ? ' old' : ''}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div>${banner || '<div></div>'}<div class="t-state">${state}</div><div class="t-info">${info}</div></div>`;
+    return `<div class="tile ${h.kind}${isOld ? ' old' : ''}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div><div></div><div class="t-state">${state}</div>${banner || `<div class="t-info">${info}</div>`}</div>`;
   }).join('');
 }
 
