@@ -46,6 +46,19 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
   .t-name { font-size: clamp(14px, min(3vh, 4.6vw), 52px); }
   .t-info { font-size: clamp(10px, min(1.8vh, 3vw), 30px); }
 }
+/* Phones: let the page scroll and size each tile to its content instead of squeezing all 8 into one screen. */
+@media (max-width: 700px) {
+  body { overflow: auto; }
+  .tv { height: auto; min-height: 100%; gap: 12px; padding-block: 16px; }
+  .tv-head h1 { font-size: 20px; }
+  .tally { font-size: 15px; }
+  .tv-grid { grid-template-rows: none; grid-auto-rows: auto; gap: 8px; }
+  .tile { padding: 12px; gap: 6px; border-radius: 10px; grid-template-rows: auto auto auto; }
+  .t-name { font-size: 16px; }
+  .t-state { font-size: clamp(18px, 6.2vw, 30px); align-self: start; }
+  .t-info { font-size: 12px; gap: 2px; }
+  .tv-foot { font-size: 12px; }
+}
 </style>
 </head>
 <body>
@@ -67,7 +80,9 @@ const REFRESH_MS = 30000;
 const STALE_MS = 6 * 3600e3;
 const TZ = 'America/Chicago';
 const hhmm = ms => new Date(ms).toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).replace(':', '');
-const day = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
+const day = ms => new Date(ms).toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric' });
+// "ED Delay" is its own status; everything else reads as "<service> Divert".
+const statusName = a => a.id === 'delay' ? a.label : a.label + ' Divert';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function dur(from, to) {
   const m = Math.max(0, Math.round((to - from) / 60000));
@@ -100,14 +115,14 @@ function render(d) {
   document.getElementById('grid').innerHTML = hs.map(h => {
     let state = 'Open', info = '';
     if (h.active.length) {
-      state = h.active.map(a => esc(a.label)).join(' + ') + ' Divert';
+      state = h.active.map(a => esc(statusName(a))).join(' + ');
       const a = h.active[0];
       info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${hhmm(a.since)} · ${dur(a.since, d.now)}</span>` +
         (a.stale ? `<span class="stale">Not confirmed ${dur(a.lastConfirmed, d.now)}</span>` : `<span>Confirmed ${hhmm(a.lastConfirmed)}</span>`);
     } else if (h.sched.length) {
       state = 'Divert ' + hhmm(h.sched[0].since);
-      info = `<span>${esc(h.sched[0].label)} divert scheduled</span>`;
-    } else if (h.last) info = `<span>Last change ${day(h.last.sentAt)}</span>`;
+      info = `<span>${esc(statusName(h.sched[0]))} scheduled</span>`;
+    } else if (h.last) info = `<span>Changed ${day(h.last.sentAt)}</span>`;
     return `<div class="tile ${h.kind}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div><div class="t-state">${state}</div><div class="t-info">${info}</div></div>`;
   }).join('');
 }

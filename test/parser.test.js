@@ -58,3 +58,12 @@ test('multi-line and open messages', () => {
   const msgs = [['WRMC on ER divert', 0], ['WRMC is open', 60000]].map(([text, t], i) => ({ id: String(i), sentAt: at + t, parsed: parseMessage(text, at + t) }));
   assert.equal(buildState(msgs, at + 120000).wrmc.ed.active, false);
 });
+
+test('ED divert clears an open ED delay', () => {
+  const at = Date.parse('2026-11-10T12:00-06:00');
+  const msgs = ['Mercy Rogers is on ED Delay', 'Mercy Rogers is ED Divert', 'Mercy Rogers is OFF ED Divert']
+    .map((text, i) => ({ id: String(i), sentAt: at + i * 60000, parsed: parseMessage(text, at + i * 60000) }));
+  const st = buildState(msgs, at + 600000)['mercy-rogers'];
+  assert.equal(st.delay.active, false);
+  assert.equal(st.ed.active, false);
+});

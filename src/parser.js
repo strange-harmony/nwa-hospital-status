@@ -104,6 +104,8 @@ export function buildState(messages, nowMs) {
         for (const v of Object.values(st[e.hospitalId])) if (v.active) Object.assign(v, { active: false, since: e.effectiveAt, last: m.id });
         continue;
       }
+      // ED divert supersedes ED delay, and coming off ED divert clears a delay nobody closed out.
+      if (e.service === 'ed') { const dl = st[e.hospitalId].delay; if (dl && dl.active) Object.assign(dl, { active: false, since: e.effectiveAt, last: m.id }); }
       const cur = st[e.hospitalId][e.service];
       if (e.kind === 'off') st[e.hospitalId][e.service] = { active: false, since: e.effectiveAt, last: m.id };
       else if (cur && cur.active) { cur.lastConfirmed = m.sentAt; cur.last = m.id; }
