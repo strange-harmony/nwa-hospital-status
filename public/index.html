@@ -118,8 +118,7 @@ function summarize(d) {
       .map(([k, v]) => ({ id: k, label: label(k), ...v, stale: d.now - v.lastConfirmed > STALE_MS }));
     const sched = Object.entries(s).filter(([, v]) => v.active && v.since > d.now).map(([k, v]) => ({ id: k, label: label(k), ...v }));
     // Newest message that says anything about this hospital, including repeats like "WRMC is open".
-    const last = d.messages.filter(m => m.sentAt <= d.now && m.parsed.ok && m.parsed.events.some(e => e.hospitalId === h.id))
-      .sort((a, b) => b.sentAt - a.sentAt)[0];
+    const last = (d.lastReport || {})[h.id];
     const kind = active.length ? (active.some(a => a.id === 'ed') ? 'divert' : 'partial') : sched.length ? 'sched' : 'open';
     return { ...h, kind, active, sched, last };
   });
@@ -142,7 +141,7 @@ function render(d) {
     } else if (h.sched.length) {
       state = 'Divert ' + hhmm(h.sched[0].since);
       info = `<span>${esc(statusName(h.sched[0]))} scheduled</span>`;
-    } else if (h.last) info = `<span>${updated(h.last.sentAt)}</span>`;
+    } else info = h.last ? `<span>${updated(h.last.sentAt)}</span>` : '<span>No reports yet</span>';
     const isOld = !!banner;
     return `<div class="tile ${h.kind}${isOld ? ' old' : ''}"><div class="t-name">${esc(h.name)}${h.note ? `<small>${esc(h.note)}</small>` : ''}</div><div></div><div class="t-state">${state}</div>${banner || `<div class="t-info">${info}</div>`}</div>`;
   }).join('');

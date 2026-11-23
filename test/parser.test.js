@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMessage, buildState } from '../src/parser.js';
+import { parseMessage, buildState, lastReports } from '../src/parser.js';
 
 // Real messages from the GroupMe group, with sample dates (Central time, UTC-6 in November).
 const SAMPLES = [
@@ -74,4 +74,14 @@ test('Mercy lines name Bella Vista and Springdale', () => {
   assert.deepEqual(ids, ['mercy-bella-vista', 'mercy-rogers', 'mercy-springdale']);
   assert.deepEqual(parseMessage('Freeman Fay is open', at).events.map(e => e.hospitalId), ['freeman-fayetteville']);
   assert.deepEqual(parseMessage('Freeman Springdale is on ER divert', at).events.map(e => e.hospitalId), ['freeman-springdale']);
+});
+
+test('last report counts repeats and open messages', () => {
+  const at = Date.parse('2026-11-01T08:00-05:00');
+  const msgs = ['WRMC on ER divert', 'WRMC continues ER divert', 'Freeman Fay is open', 'Thanks all']
+    .map((text, i) => ({ id: String(i), from: 'x', text, sentAt: at + i * 60000, parsed: parseMessage(text, at + i * 60000) }));
+  const lr = lastReports(msgs);
+  assert.equal(lr.wrmc.sentAt, at + 60000);
+  assert.equal(lr['freeman-fayetteville'].sentAt, at + 120000);
+  assert.equal(lr['acnw'], undefined);
 });

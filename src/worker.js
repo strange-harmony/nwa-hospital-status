@@ -1,4 +1,4 @@
-import { HOSPITALS, SERVICES, parseMessage, buildState } from './parser.js';
+import { HOSPITALS, SERVICES, parseMessage, buildState, lastReports } from './parser.js';
 import { saveMessage } from './store.js';
 import { pollGroupMe } from './poll.js';
 
@@ -20,15 +20,17 @@ async function receiveGroupMe(request, env) {
 
 async function status(env) {
   const now = Date.now();
-  const { results } = await env.DB.prepare('SELECT id, sender, text, sent_at FROM messages WHERE sent_at > ? ORDER BY sent_at ASC')
-    .bind(now - HISTORY_DAYS * 86400e3).all();
-  const messages = results.map(r => ({ id: r.id, from: r.sender, text: r.text, sentAt: r.sent_at, parsed: parseMessage(r.text, r.sent_at) }));
+  // All stored messages: the last 14 days decide status, and any age counts for "Updated at".
+  const { results } = await env.DB.prepare('SELECT id, sender, text, sent_at FROM messages ORDER BY sent_at ASC').all();
+  const all = results.map(r => ({ id: r.id, from: r.sender, text: r.text, sentAt: r.sent_at, parsed: parseMessage(r.text, r.sent_at) }));
+  const recent = all.filter(m => m.sentAt > now - HISTORY_DAYS * 86400e3);
   return json({
     now,
     hospitals: HOSPITALS.map(({ id, name, note }) => ({ id, name, note })),
     services: SERVICES.map(({ id, label }) => ({ id, label })),
-    state: buildState(messages, now),
-    messages: messages.slice(-200).reverse(),
+    state: buildState(recent, now),
+    lastReport: lastReports(all),
+    messages: recent.slice(-200).reverse(),
   });
 }
 

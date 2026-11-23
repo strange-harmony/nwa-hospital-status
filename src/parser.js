@@ -122,3 +122,15 @@ export function buildState(messages, nowMs) {
   }
   return st;
 }
+
+// Newest message that says anything about each hospital, including repeats like "WRMC is open".
+export function lastReports(messages) {
+  const out = {};
+  for (const m of messages) {
+    if (!m.parsed.ok) continue;
+    for (const e of m.parsed.events) {
+      if (!out[e.hospitalId] || out[e.hospitalId].sentAt < m.sentAt) out[e.hospitalId] = { sentAt: m.sentAt, text: m.text, from: m.from };
+    }
+  }
+  return out;
+}
