@@ -134,8 +134,8 @@ function render(d) {
       const old = h.active.every(x => x.stale);
       const newest = Math.max(...h.active.map(x => x.lastConfirmed));
       if (old) banner = `<div class="age">Last report ${age(newest, d.now)} ago</div>`;
-      info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${old ? day(a.since) + ' ' : ''}${hhmm(a.since)}</span>` +
-        `<span>Confirmed ${old ? day(newest) + ' ' : ''}${hhmm(newest)}</span>`;
+      // The age banner already says how old it is, so skip the time lines on old reports.
+      if (!old) info = `<span>${a.sinceUnknown ? 'Reported' : 'Since'} ${hhmm(a.since)}</span><span>Confirmed ${hhmm(newest)}</span>`;
     } else if (h.sched.length) {
       state = 'Divert ' + hhmm(h.sched[0].since);
       info = `<span>${esc(statusName(h.sched[0]))} scheduled</span>`;
