@@ -6,9 +6,9 @@ export const HOSPITALS = [
   { id: 'freeman-siloam', name: 'Freeman Siloam Springs', aliases: ['freeman siloam springs', 'freeman siloam', 'siloam springs', 'siloam'] },
   { id: 'mercy-rogers', name: 'Mercy Rogers', aliases: ['mercy rogers', 'mercy nwa'] },
   { id: 'mercy-berryville', name: 'Mercy Berryville', aliases: ['mercy berryville', 'berryville'] },
-  { id: 'mercy-bella-vista', name: 'Mercy Bella Vista', aliases: ['mercy bella vista', 'bella vista'] },
+  { id: 'mercy-bella-vista', name: 'Mercy Bella Vista', note: 'FSED', aliases: ['mercy bella vista', 'bella vista'] },
   { id: 'mercy-springdale', name: 'Mercy Springdale', aliases: ['mercy springdale'] },
-  { id: 'freeman-fayetteville', name: 'Freeman Fayetteville', aliases: ['freeman fayetteville', 'freeman fay'] },
+  { id: 'freeman-fayetteville', name: 'Freeman Fayetteville', note: 'FSED', aliases: ['freeman fayetteville', 'freeman fay'] },
   { id: 'wrmc', name: 'Washington Regional', aliases: ['washington regional medical center', 'washington regional', 'wrmc'] },
   { id: 'acnw', name: "Arkansas Children's NW", aliases: ["arkansas children's northwest", 'arkansas childrens northwest', "arkansas children's nw", 'arkansas childrens nw', 'achnw', 'acnw', "children's nw", 'childrens nw'] },
 ];
