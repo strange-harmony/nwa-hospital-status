@@ -110,7 +110,6 @@ function dur(from, to) {
 // Boils the API's per-service state down to one summary per hospital.
 function summarize(d) {
   const label = id => d.services.find(s => s.id === id).label;
-  const byId = Object.fromEntries(d.messages.map(m => [m.id, m]));
   const byName = [...d.hospitals].sort((a, b) => a.name.localeCompare(b.name));
   return byName.map(h => {
     const s = d.state[h.id] || {};
@@ -118,7 +117,9 @@ function summarize(d) {
       .sort(([a], [b]) => (a === 'ed' ? -1 : b === 'ed' ? 1 : 0))
       .map(([k, v]) => ({ id: k, label: label(k), ...v, stale: d.now - v.lastConfirmed > STALE_MS }));
     const sched = Object.entries(s).filter(([, v]) => v.active && v.since > d.now).map(([k, v]) => ({ id: k, label: label(k), ...v }));
-    const last = Object.values(s).map(v => byId[v.last]).filter(Boolean).sort((a, b) => b.sentAt - a.sentAt)[0];
+    // Newest message that says anything about this hospital, including repeats like "WRMC is open".
+    const last = d.messages.filter(m => m.sentAt <= d.now && m.parsed.ok && m.parsed.events.some(e => e.hospitalId === h.id))
+      .sort((a, b) => b.sentAt - a.sentAt)[0];
     const kind = active.length ? (active.some(a => a.id === 'ed') ? 'divert' : 'partial') : sched.length ? 'sched' : 'open';
     return { ...h, kind, active, sched, last };
   });
