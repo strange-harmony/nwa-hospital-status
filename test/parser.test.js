@@ -49,7 +49,7 @@ test('replay ends with only Centerton on stroke divert', () => {
 test('multi-line and open messages', () => {
   const at = Date.parse('2026-10-14T07:09-05:00');
   const r = parseMessage('Mercy Rogers is on ED Divert\nMercy Bella Vista and Springdale are open', at);
-  assert.deepEqual(r.events.map(e => `${e.hospitalId}/${e.service}/${e.kind}`), ['mercy-rogers/ed/on']);
+  assert.deepEqual(r.events.map(e => `${e.hospitalId}/${e.service}/${e.kind}`), ['mercy-rogers/ed/on', 'mercy-bella-vista/*/off', 'mercy-springdale/*/off']);
   const o = parseMessage('Freeman Bentonville and Centerton open', at);
   assert.deepEqual(o.events.map(e => `${e.hospitalId}/${e.service}/${e.kind}`).sort(), ['freeman-bentonville/*/off', 'freeman-centerton/*/off']);
   assert.equal(parseMessage('Is WRMC open?', at).ok, false);
@@ -66,4 +66,12 @@ test('ED divert clears an open ED delay', () => {
   const st = buildState(msgs, at + 600000)['mercy-rogers'];
   assert.equal(st.delay.active, false);
   assert.equal(st.ed.active, false);
+});
+
+test('Mercy lines name Bella Vista and Springdale', () => {
+  const at = Date.parse('2026-11-01T11:11-05:00');
+  const ids = parseMessage('Mercy Rogers, Bella Vista, and Springdale are open', at).events.map(e => e.hospitalId).sort();
+  assert.deepEqual(ids, ['mercy-bella-vista', 'mercy-rogers', 'mercy-springdale']);
+  assert.deepEqual(parseMessage('Freeman Fay is open', at).events.map(e => e.hospitalId), ['freeman-fayetteville']);
+  assert.deepEqual(parseMessage('Freeman Springdale is on ER divert', at).events.map(e => e.hospitalId), ['freeman-springdale']);
 });
