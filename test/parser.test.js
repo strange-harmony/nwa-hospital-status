@@ -45,3 +45,16 @@ test('replay ends with only Centerton on stroke divert', () => {
   const active = Object.entries(st).flatMap(([h, s]) => Object.entries(s).filter(([, v]) => v.active).map(([k]) => `${h}/${k}`));
   assert.deepEqual(active, ['freeman-centerton/stroke']);
 });
+
+test('multi-line and open messages', () => {
+  const at = Date.parse('2026-10-14T07:09-05:00');
+  const r = parseMessage('Mercy Rogers is on ED Divert\nMercy Bella Vista and Springdale are open', at);
+  assert.deepEqual(r.events.map(e => `${e.hospitalId}/${e.service}/${e.kind}`), ['mercy-rogers/ed/on']);
+  const o = parseMessage('Freeman Bentonville and Centerton open', at);
+  assert.deepEqual(o.events.map(e => `${e.hospitalId}/${e.service}/${e.kind}`).sort(), ['freeman-bentonville/*/off', 'freeman-centerton/*/off']);
+  assert.equal(parseMessage('Is WRMC open?', at).ok, false);
+  const d = parseMessage('Mercy Rogers is on ED Delay', at);
+  assert.deepEqual(d.events.map(e => e.service), ['delay']);
+  const msgs = [['WRMC on ER divert', 0], ['WRMC is open', 60000]].map(([text, t], i) => ({ id: String(i), sentAt: at + t, parsed: parseMessage(text, at + t) }));
+  assert.equal(buildState(msgs, at + 120000).wrmc.ed.active, false);
+});

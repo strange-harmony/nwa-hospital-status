@@ -12,6 +12,8 @@ export const HOSPITALS = [
 
 export const SERVICES = [
   { id: 'ed', label: 'ED', re: /\b(er|ed|emergency)\b/ },
+  // "ED Delay": slower offloads, not a full divert.
+  { id: 'delay', label: 'ED Delay', re: /\bdelay\b/ },
   { id: 'stroke', label: 'Stroke', re: /\bstroke\b/ },
   { id: 'stemi', label: 'STEMI', re: /\b(stemi|cardiac|cath)\b/ },
   { id: 'trauma', label: 'Trauma', re: /\btrauma\b/ },
@@ -31,7 +33,7 @@ function findHospitals(t) {
 
 // "as of 2000", "at 0014", "starting at 18:00" -> minutes after midnight
 function findTime(t) {
-  const m = t.match(/\b(?:as of|at|starting(?: at)?|beginning(?: at)?|effective)\s+(\d{1,2}):?(\d{2})\b/);
+  const m = t.match(/(?:\bas of|\bat|\bstarting(?: at)?|\bbeginning(?: at)?|\beffective|@)\s*(\d{1,2}):?(\d{2})\b/);
   if (!m) return null;
   const h = +m[1], min = +m[2];
   if (h > 23 || min > 59) return null;
@@ -46,10 +48,25 @@ function localMinutes(date) {
 
 // Returns { ok: true, events: [{ hospitalId, service, kind: 'on'|'off'|'confirm', effectiveAt: ms }] }
 // or { ok: false, reason } when a person should look at it.
+// Each line is read on its own, so "X on divert\nY and Z are open" doesn't mix the two up.
 export function parseMessage(text, sentAtMs) {
+  const lines = String(text || '').split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const results = lines.map(l => parseLine(l, sentAtMs));
+  const events = results.filter(r => r.ok).flatMap(r => r.events);
+  if (events.length) return { ok: true, events };
+  return results[0] || { ok: false, reason: 'Empty message' };
+}
+
+function parseLine(text, sentAtMs) {
   const t = String(text || '').toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
-  if (!/\bdiver(t|sion|ted)\b/.test(t)) return { ok: false, reason: 'No divert language' };
   const hospitals = findHospitals(t);
+  // "WRMC is open", "Freeman Bentonville and Centerton open": clears every divert for the named hospitals.
+  if (!/\b(diver(t|sion|ted)|delay)\b/.test(t)) {
+    if (hospitals.length && /\bopen\b/.test(t) && !/\?/.test(t)) {
+      return { ok: true, events: hospitals.map(h => ({ hospitalId: h.id, service: '*', kind: 'off', effectiveAt: sentAtMs })) };
+    }
+    return { ok: false, reason: 'No divert language' };
+  }
   if (!hospitals.length) return { ok: false, reason: 'No known hospital name' };
   if (hospitals.length > 1) return { ok: false, reason: 'More than one hospital named' };
 
@@ -60,6 +77,7 @@ export function parseMessage(text, sentAtMs) {
   else return { ok: false, reason: 'Could not tell on or off' };
 
   let services = SERVICES.filter(s => s.re.test(t)).map(s => s.id);
+  if (services.includes('delay')) services = services.filter(s => s !== 'ed');
   if (!services.length) services = ['ed'];
 
   // A stated clock time is taken as the nearest such time to when the message was sent,
@@ -82,6 +100,10 @@ export function buildState(messages, nowMs) {
   for (const m of messages) {
     if (m.sentAt > nowMs || !m.parsed.ok) continue;
     for (const e of m.parsed.events) {
+      if (e.service === '*') {
+        for (const v of Object.values(st[e.hospitalId])) if (v.active) Object.assign(v, { active: false, since: e.effectiveAt, last: m.id });
+        continue;
+      }
       const cur = st[e.hospitalId][e.service];
       if (e.kind === 'off') st[e.hospitalId][e.service] = { active: false, since: e.effectiveAt, last: m.id };
       else if (cur && cur.active) { cur.lastConfirmed = m.sentAt; cur.last = m.id; }
